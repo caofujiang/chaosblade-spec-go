@@ -270,7 +270,9 @@ func execScript(ctx context.Context, script, args string) *spec.Response {
 	var cmd *exec.Cmd
 	var isbak bool=strings.Contains(args, "_chaosblade.bak")
 	if find := strings.Contains(args, ".py"); find && !isbak{
-		cmd = exec.CommandContext(ctx,"python", args)
+		///args=Users/apple/tst.py a b c
+		argSlice := strings.Split(args, " ")
+		cmd = exec.CommandContext(ctx,"python", argSlice...)
 	}else{
 		cmd = exec.CommandContext(ctx, "/bin/sh", "-c", script+" "+args)
 	}
