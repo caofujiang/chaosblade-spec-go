@@ -264,8 +264,15 @@ func execScript(ctx context.Context, script, args string) *spec.Response {
 		ctx = newCtx
 	}
 	log.Debugf(ctx, "Command: %s %s", script, args)
+
+	//区分.py和.sh脚本
 	// TODO /bin/sh 的问题
-	cmd := exec.CommandContext(ctx, "/bin/sh", "-c", script+" "+args)
+	var cmd *exec.Cmd
+	if find := strings.Contains(args, ".py"); find {
+		cmd = exec.CommandContext(ctx,"python", args)
+	}else{
+		cmd = exec.CommandContext(ctx, "/bin/sh", "-c", script+" "+args)
+	}
 	output, err := cmd.CombinedOutput()
 	outMsg := string(output)
 	log.Debugf(ctx, "Command Result, output: %v, err: %v", outMsg, err)
