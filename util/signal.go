@@ -22,7 +22,6 @@ import (
 	"os/signal"
 	"runtime"
 	"syscall"
-
 )
 
 type ShutdownHook interface {

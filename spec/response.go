@@ -177,7 +177,7 @@ func Success() *Response {
 	return ReturnSuccess(nil)
 }
 
-//ToString
+// ToString
 func (response *Response) ToString() string {
 	bytes, err := json.MarshalIndent(response, "", "\t")
 	if err != nil {

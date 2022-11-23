@@ -210,7 +210,7 @@ func (l *NSExecChannel) GetPidsByLocalPort(ctx context.Context, localPort string
 	return GetPidsByLocalPort(ctx, l, localPort)
 }
 
-//专门用于处理脚本tar的解包和执行
+// 专门用于处理脚本tar的解包和执行
 func (l *NSExecChannel) RunScript(ctx context.Context, script, args, uid string) *spec.Response {
 	pid := ctx.Value(NSTargetFlagName)
 	if pid == nil {
