@@ -53,7 +53,7 @@ func NewMockLocalChannel() spec.Channel {
 	}
 }
 
-func (l *MockLocalChannel) Name() string  {
+func (l *MockLocalChannel) Name() string {
 	return "mock"
 }
 
@@ -102,6 +102,10 @@ func (mlc *MockLocalChannel) Run(ctx context.Context, script, args string) *spec
 
 func (mlc *MockLocalChannel) GetScriptPath() string {
 	return mlc.ScriptPath
+}
+
+func (mlc *MockLocalChannel) RunScript(ctx context.Context, script, args, uid string) *spec.Response {
+	return nil
 }
 
 var defaultGetPidsByProcessCmdNameFunc = func(processName string, ctx context.Context) ([]string, error) {

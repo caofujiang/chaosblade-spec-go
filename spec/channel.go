@@ -29,6 +29,9 @@ type Channel interface {
 	// Run script with args and returns response that wraps the result
 	Run(ctx context.Context, script, args string) *Response
 
+	// RunScript run script with args and returns response that wraps the result
+	RunScript(ctx context.Context, script, args, uid string) *Response
+
 	// GetScriptPath return the script path
 	GetScriptPath() string
 

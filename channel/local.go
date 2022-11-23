@@ -199,7 +199,7 @@ func (l *LocalChannel) IsAlpinePlatform(ctx context.Context) bool {
 
 // check command is available or not
 // now, all commands are: ["rm", "dd" ,"touch", "mkdir",  "echo", "kill", ,"mv","mount", "umount","tc", "head"
-//"grep", "cat", "iptables", "sed", "awk", "tar"]
+// "grep", "cat", "iptables", "sed", "awk", "tar"]
 func (l *LocalChannel) IsAllCommandsAvailable(ctx context.Context, commandNames []string) (*spec.Response, bool) {
 	return IsAllCommandsAvailable(ctx, l, commandNames)
 }
@@ -251,6 +251,10 @@ func (l *LocalChannel) GetPidsByLocalPort(ctx context.Context, localPort string)
 	return GetPidsByLocalPort(ctx, l, localPort)
 }
 
+func (l *LocalChannel) RunScript(ctx context.Context, script, args, uid string) *spec.Response {
+	return nil
+}
+
 // execScript invokes exec.CommandContext
 func execScript(ctx context.Context, script, args string) *spec.Response {
 	isBladeCommand := isBladeCommand(script)
@@ -268,12 +272,12 @@ func execScript(ctx context.Context, script, args string) *spec.Response {
 	//区分.py和.sh脚本
 	// TODO /bin/sh 的问题
 	var cmd *exec.Cmd
-	var isbak bool=strings.Contains(args, "_chaosblade.bak")
-	if find := strings.Contains(args, ".py"); find && !isbak{
+	var isbak bool = strings.Contains(args, "_chaosblade.bak")
+	if find := strings.Contains(args, ".py"); find && !isbak {
 		///args=Users/apple/tst.py a b c
 		argSlice := strings.Split(args, " ")
-		cmd = exec.CommandContext(ctx,"python", argSlice...)
-	}else{
+		cmd = exec.CommandContext(ctx, "python", argSlice...)
+	} else {
 		cmd = exec.CommandContext(ctx, "/bin/sh", "-c", script+" "+args)
 	}
 	output, err := cmd.CombinedOutput()

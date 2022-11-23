@@ -36,7 +36,6 @@ import (
 	"reflect"
 	"runtime"
 	"time"
-
 )
 
 var proPath string
@@ -131,7 +130,7 @@ func IsNil(i interface{}) bool {
 	return false
 }
 
-//IsExist returns true if file exists
+// IsExist returns true if file exists
 func IsExist(fileName string) bool {
 	_, err := os.Stat(fileName)
 	return err == nil || os.IsExist(err)
@@ -146,7 +145,7 @@ func IsDir(path string) bool {
 	return fileInfo.IsDir()
 }
 
-//GetUserHome return user home.
+// GetUserHome return user home.
 func GetUserHome() string {
 	user, err := user.Current()
 	if err == nil {
