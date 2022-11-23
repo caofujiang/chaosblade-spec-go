@@ -1,14 +1,18 @@
 package channel
 
 import (
+	"archive/tar"
 	"context"
 	"fmt"
 	"github.com/chaosblade-io/chaosblade-spec-go/log"
 	"github.com/chaosblade-io/chaosblade-spec-go/spec"
 	"github.com/chaosblade-io/chaosblade-spec-go/util"
+	"io"
 	"os"
 	"os/exec"
 	"path"
+	"path/filepath"
+	"runtime"
 	"strconv"
 	"strings"
 	"time"
@@ -74,7 +78,7 @@ func (l *NSExecChannel) Run(ctx context.Context, script, args string) *spec.Resp
 		programPath = path.Join(programPath, spec.BinPath)
 	}
 	bin := path.Join(programPath, spec.NSExecBin)
-	log.Debugf(ctx,`Command: %s %s "%s"`, bin, ns_script, args)
+	log.Debugf(ctx, `Command: %s %s "%s"`, bin, ns_script, args)
 
 	split := strings.Split(ns_script, " ")
 
@@ -204,4 +208,143 @@ func (l *NSExecChannel) IsAlpinePlatform(ctx context.Context) bool {
 
 func (l *NSExecChannel) GetPidsByLocalPort(ctx context.Context, localPort string) ([]string, error) {
 	return GetPidsByLocalPort(ctx, l, localPort)
+}
+
+//专门用于处理脚本tar的解包和执行
+func (l *NSExecChannel) RunScript(ctx context.Context, script, args, uid string) *spec.Response {
+	pid := ctx.Value(NSTargetFlagName)
+	if pid == nil {
+		return spec.ResponseFailWithFlags(spec.CommandIllegal, script)
+	}
+
+	ns_script := fmt.Sprintf("-t %s", pid)
+
+	if ctx.Value(NSPidFlagName) == spec.True {
+		ns_script = fmt.Sprintf("%s -p", ns_script)
+	}
+
+	if ctx.Value(NSMntFlagName) == spec.True {
+		ns_script = fmt.Sprintf("%s -m", ns_script)
+	}
+
+	if ctx.Value(NSNetFlagName) == spec.True {
+		ns_script = fmt.Sprintf("%s -n", ns_script)
+	}
+
+	isBladeCommand := isBladeCommand(script)
+	if isBladeCommand && !util.IsExist(script) {
+		// TODO nohup invoking
+		return spec.ResponseFailWithFlags(spec.ChaosbladeFileNotFound, script)
+	}
+	timeoutCtx, cancel := context.WithTimeout(ctx, 60*time.Second)
+	defer cancel()
+
+	//main.tar是一个或者多个文件直接打的tar，外层没有目录，eg: scriptFile="/Users/apple/tar_file/main.tar
+	tarDistDir := filepath.Dir(script) + "/" + fmt.Sprintf("%d", time.Now().UnixNano())
+	UnTar(script, tarDistDir)
+	//判断有没有main主文件，没有直接返错误
+	scriptMain := tarDistDir + "/main"
+	if _, err := os.Stat(scriptMain); os.IsNotExist(err) {
+		outMessage := " script files must contain main file " + err.Error()
+		return spec.ResponseFailWithFlags(spec.FileNotExist, outMessage)
+	}
+
+	ns_script = fmt.Sprintf("%s -- /bin/sh -c", ns_script)
+
+	programPath := util.GetProgramPath()
+	if path.Base(programPath) != spec.BinPath {
+		programPath = path.Join(programPath, spec.BinPath)
+	}
+	bin := path.Join(programPath, spec.NSExecBin)
+	log.Debugf(ctx, `Command: %s %s "%s"`, bin, ns_script, args)
+
+	//cmdChmod := exec.Command("sh", "-c", "chmod 777 "+scriptMain)
+	cmdChmod := exec.CommandContext(timeoutCtx, bin, "chmod 777 "+scriptMain)
+	outputChmod, err := cmdChmod.CombinedOutput()
+	outMsgChmod := string(outputChmod)
+	log.Debugf(ctx, "Command Result, outputChmod: %v, err: %v", outMsgChmod, err)
+	if err != nil {
+		outMsgChmod += " " + err.Error()
+		return spec.ResponseFailWithFlags(spec.OsCmdExecFailed, cmdChmod, outMsgChmod)
+	}
+	//录制script脚本执行过程
+	time := "/tmp/" + uid + ".time"
+	out := "/tmp/" + uid + ".out"
+	if runtime.GOOS == "darwin" {
+		scriptMain = "script  -t 2>" + time + " -a " + out + " " + scriptMain
+		if args != "" {
+			args = scriptMain + " " + args
+		} else {
+			args = scriptMain
+		}
+
+	} else {
+		scriptMain = "script  -t 2>" + time + " -a " + out + "  -c  " + "\"" + scriptMain
+		if args != "" {
+			args = scriptMain + " " + args
+		} else {
+			args = scriptMain
+		}
+		args += "\""
+	}
+
+	split := strings.Split(ns_script, " ")
+
+	cmd := exec.CommandContext(timeoutCtx, bin, append(split, args)...)
+	output, err := cmd.CombinedOutput()
+	outMsg := string(output)
+	log.Debugf(ctx, "Command Result, output: %v, err: %v", outMsg, err)
+	// TODO shell-init错误
+	if strings.TrimSpace(outMsg) != "" {
+		resp := spec.Decode(outMsg, nil)
+		if resp.Code != spec.ResultUnmarshalFailed.Code {
+			return resp
+		}
+	}
+	if err == nil {
+		return spec.ReturnSuccess(outMsg)
+	}
+	outMsg += " " + err.Error()
+	return spec.ResponseFailWithFlags(spec.OsCmdExecFailed, cmd, outMsg)
+}
+
+func UnTar(srcTar string, dstDir string) (err error) {
+	dstDir = path.Clean(dstDir) + string(os.PathSeparator)
+	fr, er := os.Open(srcTar)
+	if er != nil {
+		return er
+	}
+	defer fr.Close()
+	tr := tar.NewReader(fr)
+	for hdr, er := tr.Next(); er != io.EOF; hdr, er = tr.Next() {
+		if er != nil {
+			return er
+		}
+		fi := hdr.FileInfo()
+		// 获取绝对路径
+		dstFullPath := dstDir + hdr.Name
+		if hdr.Typeflag == tar.TypeDir {
+			os.MkdirAll(dstFullPath, fi.Mode().Perm())
+			os.Chmod(dstFullPath, fi.Mode().Perm())
+		} else {
+			os.MkdirAll(path.Dir(dstFullPath), os.ModePerm)
+			if er := unTarFile(dstFullPath, tr); er != nil {
+				return er
+			}
+			os.Chmod(dstFullPath, fi.Mode().Perm())
+		}
+	}
+	return nil
+}
+func unTarFile(dstFile string, tr *tar.Reader) error {
+	fw, er := os.Create(dstFile)
+	if er != nil {
+		return er
+	}
+	defer fw.Close()
+	_, er = io.Copy(fw, tr)
+	if er != nil {
+		return er
+	}
+	return nil
 }
