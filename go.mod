@@ -1,6 +1,6 @@
 module github.com/chaosblade-io/chaosblade-spec-go
 
-go 1.17
+go 1.20
 
 require (
 	github.com/shirou/gopsutil v2.20.5+incompatible
