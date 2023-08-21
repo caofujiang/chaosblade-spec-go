@@ -117,6 +117,7 @@ var (
 	SystemdNotFound                   = CodeType{66001, "`%s`: systemd not found, err: %v"}
 	DatabaseError                     = CodeType{67001, "`%s`: failed to execute, err: %v"}
 	DataNotFound                      = CodeType{67002, "`%s` record not found, if it's k8s experiment, please add --target k8s flag to retry"}
+	BashPhthonNotFoundError           = CodeType{67003, "`%s`: bash,phthon: Command not found., err: %v"}
 )
 
 func (c CodeType) Sprintf(values ...interface{}) string {
@@ -177,7 +178,7 @@ func Success() *Response {
 	return ReturnSuccess(nil)
 }
 
-//ToString
+// ToString
 func (response *Response) ToString() string {
 	bytes, err := json.MarshalIndent(response, "", "\t")
 	if err != nil {

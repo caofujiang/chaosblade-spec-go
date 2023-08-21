@@ -202,7 +202,7 @@ func (l *LocalChannel) IsAlpinePlatform(ctx context.Context) bool {
 
 // check command is available or not
 // now, all commands are: ["rm", "dd" ,"touch", "mkdir",  "echo", "kill", ,"mv","mount", "umount","tc", "head"
-//"grep", "cat", "iptables", "sed", "awk", "tar"]
+// "grep", "cat", "iptables", "sed", "awk", "tar"]
 func (l *LocalChannel) IsAllCommandsAvailable(ctx context.Context, commandNames []string) (*spec.Response, bool) {
 	return IsAllCommandsAvailable(ctx, l, commandNames)
 }
@@ -271,12 +271,26 @@ func execScript(ctx context.Context, script, args string) *spec.Response {
 	//区分.py和.sh脚本
 	// TODO /bin/sh 的问题
 	var cmd *exec.Cmd
-	var isbak bool=strings.Contains(args, "_chaosblade.bak")
-	if find := strings.Contains(args, ".py"); find && !isbak{
-		///args=Users/apple/tst.py a b c
+	var isbak bool = strings.Contains(args, "_chaosblade.bak")
+	if find := strings.Contains(args, ".py"); find && !isbak {
+		//args=/Users/apple/tst.py a b c
 		argSlice := strings.Split(args, " ")
-		cmd = exec.CommandContext(ctx,"python", argSlice...)
-	}else{
+		outIsPython2, err2 := exec.Command("python", "-V").Output()
+		log.Debugf(ctx, "execScript Command out: %s", outIsPython2)
+		outIsPython3, err3 := exec.Command("python3", "-V").Output()
+		log.Debugf(ctx, "execScript Command out: %s", outIsPython3)
+		if err2 == nil {
+			//python2
+			cmd = exec.CommandContext(ctx, "python", argSlice...)
+		} else if err3 == nil {
+			//python3
+			cmd = exec.CommandContext(ctx, "python3", argSlice...)
+		} else {
+			//提示没安装python3
+			return spec.ResponseFailWithFlags(spec.BashPhthonNotFoundError, script)
+		}
+
+	} else {
 		cmd = exec.CommandContext(ctx, "/bin/sh", "-c", script+" "+args)
 	}
 	output, err := cmd.CombinedOutput()
