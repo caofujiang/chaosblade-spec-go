@@ -271,8 +271,8 @@ func execScript(ctx context.Context, script, args string) *spec.Response {
 	//区分.py和.sh脚本
 	// TODO /bin/sh 的问题
 	var cmd *exec.Cmd
-	var isbak bool = strings.Contains(args, "_chaosblade.bak")
-	if find := strings.Contains(args, ".py"); find && !isbak {
+	//var isbak bool = strings.Contains(args, "_chaosblade.bak")
+	if find := strings.Contains(args, ".py"); find && script == "python" {
 		//args=/Users/apple/tst.py a b c
 		argSlice := strings.Split(args, " ")
 		outIsPython2, err2 := exec.Command("python", "-V").Output()
